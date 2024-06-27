@@ -1,3 +1,4 @@
+
 import { RequestHandler } from "express"
 import UserModel from "src/models/users";
 import crypto from 'crypto';
@@ -5,7 +6,14 @@ import nodemailer from 'nodemailer'
 import AuthVerificationTokenModel from "src/models/authVerificationToken";
 import { sendErrorRes } from "src/utils/helper";
 import { send } from "process";
-import jwt from "jsonwebtoken"
+import jwt, { TokenExpiredError } from "jsonwebtoken"
+import mail from "src/utils/mail";
+import PasswordResetTokenModel from "src/models/passwordResetToken";
+
+
+    const VERIFICATION_LINK = process.env.VERIFICATION_LINK
+    const JWT_SECRET = process.env.JWT_SECRET!
+    const PASSWORD_RESET_LINK = process.env.PASSWORD_RESET_LINK
 
 
 export const createNewuser: RequestHandler = async (req, res) =>{  
@@ -25,7 +33,7 @@ export const createNewuser: RequestHandler = async (req, res) =>{
     if(existingUser) 
         return sendErrorRes(res, "Unauthorized request, email is already in use", 401)
 
-    const user = await UserModel.create({email, password,name});
+    const user = await UserModel.create({email,password,name});
     
     user.comparePassword(password);
 
@@ -34,22 +42,24 @@ export const createNewuser: RequestHandler = async (req, res) =>{
        await AuthVerificationTokenModel.create({owner: user._id, token});
         
     // 7, send verification link with token to register email,
-    const link = `http://localhost:8000/verify.html?id=${user._id}&token=${token}`
+    const link = `${VERIFICATION_LINK}?id=${user._id}&token=${token}`
 
-    const transport = nodemailer.createTransport({
-        host: "sandbox.smtp.mailtrap.io",
-        port: 2525,
-        auth: {
-          user: "2c186ffed6247a",
-          pass: "cacec05e2a6e66"
-        }
-      });
+      
 
-      await transport.sendMail({
-        from: "verification@myapp.com",
-        to: user.email,
-        html: `<h1>please click on <a href="${link}">this link</a> to verify your account<h1>`
-      })
+    // const transport = nodemailer.createTransport({
+    //     host: "sandbox.smtp.mailtrap.io",
+    //     port: 2525,
+    //     auth: {
+    //       user: "2c186ffed6247a",
+    //       pass: "cacec05e2a6e66"
+    //     }
+    //   });
+
+    //   await transport.sendMail({
+    //     from: "verification@myapp.com",
+    //     to: user.email,
+    //     html: `<h1>please click on <a href="${link}">this link</a> to verify your account<h1>`
+    //   })
 
      // 8, send message back to check email inbox
         res.json({message: "Please check your email"})
@@ -78,9 +88,29 @@ export const verifyEmail: RequestHandler = async (req, res) =>{
      await UserModel.findByIdAndUpdate(id, {verified: true})
 
      await AuthVerificationTokenModel.findByIdAndDelete(authToken._id)
-
-       res.json({message: "Thanks for joining us, your email is now verified"})
+        res.json({message: "Thanks for joining us, your email is now verified"})
     };
+
+    export const generateVerificationLink: RequestHandler = async (req, res) =>{
+        //1  check if user is authenicated of not
+        //2 remove previous token if any
+        //3 create/store new token 
+        //4 send link inside users email 
+        //5 send response back
+
+        const {id} = req.user;
+        const token = crypto.randomBytes(36).toString("hex")
+        const link = `${VERIFICATION_LINK}?id=${id}&token=${token}`
+
+        await AuthVerificationTokenModel.findOneAndDelete({owner: id})
+
+        await AuthVerificationTokenModel.create({owner: id, token})
+
+        await mail.sendVerification(req.user.email, link )
+
+        res.json({message: "Check your inbox"})
+    }
+    
  
 export const signIn: RequestHandler = async (req, res) => {
 //         1. Read incoming data like: email and password
@@ -100,10 +130,10 @@ if(!user) return sendErrorRes(res, "Email/password mismatch", 403)
 
         const payload = {id: user._id}
 
-        const accessToken = jwt.sign(payload, "secret",{
+        const accessToken = jwt.sign(payload, JWT_SECRET,{
             expiresIn: "15m",
-        })
-        const refreshToken = jwt.sign(payload, "secret")
+        });
+        const refreshToken = jwt.sign(payload, JWT_SECRET)
 
        if(!user.tokens) user.tokens = [refreshToken]
        else user.tokens.push(refreshToken)
@@ -124,4 +154,102 @@ if(!user) return sendErrorRes(res, "Email/password mismatch", 403)
         res.json({
             profile: req.user
         })
+    };
+    
+    export const grantAccessToken: RequestHandler = async (req, res) =>{
+        // Read and verify refresh Token
+        // find user with payload.id and refresh token
+        // if the refresh token is valid and no user found, token is compromised
+        // Remove all the previous tokens and send error response
+        // If the token is valid and user found, create new refresh token and access Token
+        // Remove previous TokenExpiredError, update user and send new tokens
+        
+        const {refreshToken} = req.body;
+    
+
+        if(!refreshToken) return sendErrorRes(res,"Unathourized request", 403);
+
+            const payload = jwt.verify(refreshToken, JWT_SECRET) as {id: string}
+        if(!payload.id) return sendErrorRes(res,"Unathourized request", 401)
+
+        
+        let user = await UserModel.findById({
+            _id: payload.id,
+            tokens: refreshToken
+        })
+
+        if(!user){
+            // if user is compromised remove all the previous token 
+
+            await UserModel.findByIdAndUpdate(payload.id, {tokens: []})
+            return sendErrorRes(res, "Unauthorized request", 401)
+
+        }
+
+        const newAccessToken = jwt.sign({id: user._id}, JWT_SECRET,{
+            expiresIn: "15m",
+        });
+        const newRefreshToken = jwt.sign({id: user._id}, JWT_SECRET)
+        const filteredTokens = user.tokens.filter((t) => t !== refreshToken)
+        user.tokens = filteredTokens;
+        user.tokens.push(newRefreshToken)
+        await user.save()
+
+        await user.save()
+
+        res.json({
+            tokens: {refresh: newRefreshToken, access: newAccessToken},
+        })
+
+   
+
+    
     }
+
+    export const signOut: RequestHandler = async (req, res) =>{
+      
+        // remove refresh token
+
+        const {refreshToken} = req.body
+        const user = await UserModel.findOne({
+            _id: req.user.id, 
+            tokens: refreshToken})
+        if(!user) return sendErrorRes(res, "Unauthorized request, User not found", 403);
+        const newTokens = user.tokens.filter(t => t !== refreshToken)
+        user.tokens = newTokens
+        await user.save()
+        res.send("Hey Swapper!! We gonna miss you")
+    
+    }
+
+    export const generateForgotPasswordLink: RequestHandler = async (req, res) =>{
+
+                // 1. ASk for users email
+                // 2. find user with the given email
+                // 3. send error if there is no user
+                // 4. Else generate password reset(first remove if there is any
+                // 5. Generate reset link (like we did for verification
+                // 6. Send link inside user's email
+                // 7. Send response back
+
+
+            const {email} = req.body
+            const user = await  UserModel.findOne({email});
+            if(!user) return sendErrorRes(res, "Account not found", 404)
+
+                // remove token
+                await PasswordResetTokenModel.findByIdAndDelete({owner: user._id})
+
+                // create new Token
+                const token = crypto.randomBytes(36).toString('hex')
+                await PasswordResetTokenModel.create({owner: user._id, token})
+                
+
+                // send link to user email for new password creation
+                const passwordResetLink = `${PASSWORD_RESET_LINK}?id=${user._id}&token=${token}`;
+                await mail.sendPasswordResetLink(user.email, passwordResetLink)
+
+                // send response
+
+                res.json({message: "Please check your mail"});
+    };

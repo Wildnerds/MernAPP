@@ -1,21 +1,23 @@
 {
     "compilerOptions": {
-        "module": "commonjs",
-        "target": "ES2015",
-        "noImplicitAny": true,
-        "removeComments": true,
-        "strict": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true,
-        "rootDir": "./src",
-        "outDir": "./dist",
-        "baseUrl": ".",
-        "paths": {
-            "src/*": ["./src/*"],
-            "routes/*": ["./src/routes/*"],
-            "controllers/*": ["./src/controllers/*"]
-        }
+      "module": "commonjs",
+      "target": "ES2015",
+      "noImplicitAny": true,
+      "removeComments": true,
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true,
+      "rootDir": "./src",             // Root directory for TypeScript files
+      "outDir": "./dist",             // Output directory for compiled JavaScript files
+      "baseUrl": ".",                 // Base URL for module resolution
+      "paths": {
+        "src/*": ["./src/*"],         // Path mapping for files under 'src'
+        "routes/*": ["./src/routes/*"],       // Path mapping for files under 'routes'
+        "controllers/*": ["./src/controllers/*"]  // Path mapping for files under 'controllers'
+      },
+      
     },
-   
-}
+    // "include" is not explicitly defined, defaults to including all TypeScript files under "rootDir"
+  }
+  

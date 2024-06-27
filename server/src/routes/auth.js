@@ -1,0 +1,17 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+var express_1 = require("express");
+var auth_1 = require("controllers/auth");
+var validator_1 = require("src/middlesware/validator");
+var validationSchema_1 = require("src/utils/validationSchema");
+var auth_2 = require("src/middlesware/auth");
+var authRouter = (0, express_1.Router)();
+authRouter.post('/sign-up', (0, validator_1.default)(validationSchema_1.newUserSchema), auth_1.createNewuser);
+authRouter.post('/verify', (0, validator_1.default)(validationSchema_1.verifyTokenSchema), auth_1.verifyEmail);
+authRouter.get('/verify-token', auth_2.isAuth, auth_1.generateVerificationLink);
+authRouter.post('/sign-in', auth_1.signIn);
+authRouter.get('/profile', auth_2.isAuth, auth_1.sendProfile);
+authRouter.post('/refresh-token', auth_1.grantAccessToken);
+authRouter.post('/sign-out', auth_2.isAuth, auth_1.signOut);
+authRouter.post('/forget-password', auth_1.generateForgotPasswordLink);
+exports.default = authRouter;

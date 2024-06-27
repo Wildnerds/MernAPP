@@ -5,7 +5,7 @@ import UserModel from "src/models/users";
 
 interface UserProfile  {
     id: string,
-    name: string,
+    name: string, 
     email: string,
     verified: boolean,
 }

@@ -1,8 +1,11 @@
+
+import "dotenv/config"
 import "express-async-errors"
 import "src/db"
 import express  from "express";
 import authRouter from "./routes/auth";
 
+console.log("JWT_SECRET:", process.env.JWT_SECRET);
 
 
 const app = express();

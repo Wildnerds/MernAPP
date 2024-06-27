@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', async () =>{
     method: 'POST',
     body: JSON.stringify({token, id}),
     headers: {
-       'Content-Type': 'application/json:charset=utf-8'
+       'Content-Type': 'application/json;charset=utf-8'
     }
  })
   if(!res.ok) {
@@ -25,5 +25,5 @@ window.addEventListener('DOMContentLoaded', async () =>{
  }
 
     const {message} = await res.json()
-    messageTag.innerText = "your account has been verified";
+    messageTag.innerText = message;
 });
