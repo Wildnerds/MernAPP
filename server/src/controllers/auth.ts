@@ -10,11 +10,16 @@ import jwt, { TokenExpiredError } from "jsonwebtoken"
 import mail from "src/utils/mail";
 import PasswordResetTokenModel from "src/models/passwordResetToken";
 
+import { profile } from "console";
+import { isValidObjectId } from "mongoose";
+import cloudUploader from "src/cloud";
+
+
 
     const VERIFICATION_LINK = process.env.VERIFICATION_LINK
     const JWT_SECRET = process.env.JWT_SECRET!
     const PASSWORD_RESET_LINK = process.env.PASSWORD_RESET_LINK
-
+  
 
 export const createNewuser: RequestHandler = async (req, res) =>{  
     // 1. Read incoming data like : name, email, password
@@ -238,7 +243,7 @@ if(!user) return sendErrorRes(res, "Email/password mismatch", 403)
             if(!user) return sendErrorRes(res, "Account not found", 404)
 
                 // remove token
-                await PasswordResetTokenModel.findByIdAndDelete({owner: user._id})
+                await PasswordResetTokenModel.findOneAndDelete({owner: user._id})
 
                 // create new Token
                 const token = crypto.randomBytes(36).toString('hex')
@@ -253,3 +258,118 @@ if(!user) return sendErrorRes(res, "Email/password mismatch", 403)
 
                 res.json({message: "Please check your mail"});
     };
+
+    export const grantValid: RequestHandler = async (req, res) =>{
+
+        res.json({valid: true});
+};
+
+export const updatePassword: RequestHandler = async (req, res) =>{
+
+    // 1, Read User id, reset password token and password
+    // 2, Validate all these things
+    // 3, If valid find user with given id
+    // 4, check if user is using same password
+    // 5, if there is no user or user is missing the same password, send error res
+    // 6, Else update new password
+    // 7, Remove password reset token
+    // 8, Send confirmation email
+    // 9, Send response back
+
+    const {id, password} = req.body
+
+    const user = await UserModel.findById(id)
+    if(!user) return sendErrorRes(res, "Unauthorized access", 403)
+
+    const matched = await user.comparePassword(password)
+    if(matched) return sendErrorRes(res, "The new password must be different", 422)
+
+    user.password = password
+    await user.save()
+
+    await PasswordResetTokenModel.findOneAndDelete({owner: user._id})
+
+    await mail.sendPasswordUpdateMessage(user.email)
+
+    res.json({message: "Password reset successful"})
+
+};
+
+export const updateProfile: RequestHandler = async (req, res) =>{
+
+    // 1, User must be logged in (authenicated)
+    // 2, Name must be valid
+    // 3, Find user and update the name
+    // 4, Send new profile
+   
+    const {name} = req.body
+    if(typeof name !== 'string' || name.trim().length < 3){
+        return sendErrorRes(res, "invalid name", 422)
+   }
+    await UserModel.findByIdAndUpdate(req.user.id, {name})
+
+    res.json({profile:{ ...req.user, name}})
+
+
+}
+
+export const updateAvatar: RequestHandler = async (req, res) =>{
+
+    /**
+    1, User must be logged in
+    2, Read Incoming file,
+    3, file type must be image
+    4, Check if user already have avater or not,
+    5, if yes remove the old avater,
+    6, Upload new avater and update user,
+    7, send response back
+    **/ 
+
+    const {avatar} = req.files
+    if(Array.isArray(avatar)){
+        return sendErrorRes(res, "You cannot upload multiple files", 422)
+    }
+
+    if(!avatar.mimetype?.startsWith("image")){
+        return sendErrorRes(res, "Invalid image file", 422)
+    }
+    const user = await UserModel.findByIdAndUpdate(req.user.id)
+    if(!user){
+        return sendErrorRes(res, "User not found", 404)
+    }
+    if(user.avatar?.id){
+        //remove avater
+       await cloudUploader.destroy(user.avatar.id)
+    }
+
+    //upload avater file
+    const {secure_url: url, public_id: id} = await cloudUploader.upload(avatar.filepath,
+        {
+            width: 300,
+            height: 300,
+            crop: "thumb",
+            gravity: "face",
+            background: "white",
+            border: "2px_solid_black",
+            quality: "auto",
+            folder: "avatars",
+        }
+    )
+    user.avatar = {url, id}
+    await user.save()
+    res.json({profile: {...req.user, avatar: user.avatar.url}})
+};
+
+export const sendPublicProfile: RequestHandler = async (req, res) =>{
+    const profileId = req.params.id;
+    if(!isValidObjectId(profileId)){ 
+        return sendErrorRes(res,"Invalid profile id", 422)  
+}
+
+const user = await UserModel.findById(profileId)
+if(!user){
+    return sendErrorRes(res,"profile not found", 404)
+}
+res.json({profile:{id: user._id, name: user.name, avatar: user.avatar?.url}})
+
+}

@@ -1,5 +1,5 @@
 import { compare, genSalt, hash } from "bcrypt";
-import { Schema, model, Document } from "mongoose";
+import { Schema, model } from "mongoose";
 import { object } from "yup";
 
 interface PasswordResetTokenDocument extends Document{
