@@ -15,7 +15,10 @@
     "@types/node": "^20.12.13",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.2.0",
+    "cors": "^2.8.5",
+    "date-fns": "^3.6.0",
     "dotenv": "^16.4.5",
+    "expo-image-picker": "^15.0.7",
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
     "formidable": "^3.5.1",
@@ -31,6 +34,7 @@
     "@types/bcrypt": "^5.0.2",
     "@types/formidable": "^3.4.5",
     "@types/jsonwebtoken": "^9.0.6",
+    "@types/luxon": "^3.4.2",
     "@types/nodemailer": "^6.4.15",
     "tsc-alias": "^1.8.10"
   }

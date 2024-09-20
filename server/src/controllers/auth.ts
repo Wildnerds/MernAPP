@@ -14,13 +14,10 @@ import { profile } from "console";
 import { isValidObjectId } from "mongoose";
 import cloudUploader from "src/cloud";
 
-
-
     const VERIFICATION_LINK = process.env.VERIFICATION_LINK
     const JWT_SECRET = process.env.JWT_SECRET!
     const PASSWORD_RESET_LINK = process.env.PASSWORD_RESET_LINK
   
-
 export const createNewuser: RequestHandler = async (req, res) =>{  
     // 1. Read incoming data like : name, email, password
     const {email, password, name} = req.body;
@@ -51,27 +48,24 @@ export const createNewuser: RequestHandler = async (req, res) =>{
 
       
 
-    // const transport = nodemailer.createTransport({
-    //     host: "sandbox.smtp.mailtrap.io",
-    //     port: 2525,
-    //     auth: {
-    //       user: "2c186ffed6247a",
-    //       pass: "cacec05e2a6e66"
-    //     }
-    //   });
+    const transport = nodemailer.createTransport({
+        host: "sandbox.smtp.mailtrap.io",
+        port: 2525,
+        auth: {
+            user: process.env.MAIL_TRAP_USER,
+            pass: process.env.MAIL_TRAP_PASSWORD,
+        }
+      });
 
-    //   await transport.sendMail({
-    //     from: "verification@myapp.com",
-    //     to: user.email,
-    //     html: `<h1>please click on <a href="${link}">this link</a> to verify your account<h1>`
-    //   })
+      await transport.sendMail({
+        from: "verification@myapp.com",
+        to: user.email,
+        html: `<h1>please click on <a href="${link}">this link</a> to verify your account<h1>`
+      })
 
-     // 8, send message back to check email inbox
+     // 8, send message back for user to check email inbox
         res.json({message: "Please check your email"})
 
-
-    
-  
 };
 
 export const verifyEmail: RequestHandler = async (req, res) =>{
@@ -151,6 +145,7 @@ if(!user) return sendErrorRes(res, "Email/password mismatch", 403)
             email:user.email,
             name: user.name,
             verified: user.verified,
+            avatar: user.avatar?.url
         },
         tokens: {refresh: refreshToken, access: accessToken}
        })

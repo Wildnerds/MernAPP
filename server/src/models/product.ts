@@ -1,4 +1,5 @@
 import { Document, Schema, model } from "mongoose";
+
 import categories from "src/utils/categories";
 
 type productImage = {url: string; id: string};
@@ -9,8 +10,8 @@ export interface ProductDocument extends Document {
     price: number;
     purchaseDate: Date;
     category: string;
-    images: productImage[];
-    thumbnail: string;
+    images?: productImage[];
+    thumbnail?: string;
     description: string;
 }
 
@@ -44,10 +45,10 @@ const schema = new Schema<ProductDocument>({
     },
   
 
-    // purchaseDate: {
-    //     type: Date,
-    //     required: true,
-    // },
+    purchaseDate: {
+        type: Date,
+        required: true,
+    },
     images:[{
         type: Object,
         url: String,

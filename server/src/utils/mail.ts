@@ -9,6 +9,8 @@ const transport = nodemailer.createTransport({
     }
   });
 
+  
+  
  const sendVerification = async (email: string, link: string) => {
 
       await transport.sendMail({

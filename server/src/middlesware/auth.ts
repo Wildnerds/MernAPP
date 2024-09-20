@@ -7,10 +7,12 @@ import PasswordResetTokenModel from "src/models/passwordResetToken";
 const JWT_SECRET = process.env.JWT_SECRET
 
 interface UserProfile  {
+    [x: string]: any;
     id: string,
     name: string, 
     email: string,
     verified: boolean,
+    avatar: string,
 }
 
 declare global {
@@ -50,6 +52,7 @@ try {
         name: user.name,
         email: user.email,
         verified: user.verified,
+        avatar: user.avatar?.url
 
     };
     next()
